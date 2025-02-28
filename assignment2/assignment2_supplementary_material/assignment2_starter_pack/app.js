@@ -21,9 +21,14 @@ const KEY_TO_PAD = {
     's': 'pad-blue'
 };
 
-// API base URL (update with your actual worker URL after deployment)
-//const BASE_URL = 'https://simon-says-api.yourusername.workers.dev/api/v1';
-const BASE_URL = 'https://simon-says-api.r4ng4r.workers.dev/api/v1'
+// Set this to true for demo purposes to connect to localhost from deployed site
+const useLocalApi = true;
+
+// API base URL with demo toggle
+const BASE_URL = useLocalApi 
+  ? 'http://localhost:3000/api/v1'
+  : 'https://simon-says-api.r4ng4r.workers.dev/api/v1';
+
 // Get DOM elements
 const startButton = document.getElementById('start-btn');
 const replayButton = document.getElementById('replay-btn');
