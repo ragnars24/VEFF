@@ -21,10 +21,10 @@ const KEY_TO_PAD = {
     's': 'pad-blue'
 };
 
-// Set this to true for demo purposes to connect to localhost from deployed site
-const useLocalApi = true;
+// Set this to false for production deployment
+const useLocalApi = false;
 
-// API base URL with demo toggle
+// API base URL with toggle
 const BASE_URL = useLocalApi 
   ? 'http://localhost:3000/api/v1'
   : 'https://simon-says-api.r4ng4r.workers.dev/api/v1';
@@ -139,6 +139,8 @@ function initializeGame() {
     // Start game
     async function startGame() {
         try {
+            console.log("Attempting to connect to backend at:", BASE_URL);
+            
             // Reset game state
             const resetResponse = await axios.put(`${BASE_URL}/game-state`);
             console.log("Game reset response:", resetResponse.data);
