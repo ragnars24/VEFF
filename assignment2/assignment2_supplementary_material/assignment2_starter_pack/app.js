@@ -21,13 +21,8 @@ const KEY_TO_PAD = {
     's': 'pad-blue'
 };
 
-// Set this to false for production deployment
-const useLocalApi = false;
-
-// API base URL with toggle
-const BASE_URL = useLocalApi 
-  ? 'http://localhost:3000/api/v1'
-  : 'https://simon-says-api.r4ng4r.workers.dev/api/v1';
+// API base URL - always use localhost for development branch
+const BASE_URL = 'http://localhost:3000/api/v1';
 
 // Get DOM elements
 const startButton = document.getElementById('start-btn');
