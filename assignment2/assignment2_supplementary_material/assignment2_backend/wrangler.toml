@@ -1,0 +1,7 @@
+name = "simon-says-api"
+main = "worker.js"
+compatibility_date = "2023-12-01"
+
+[vars]
+API_PATH = "/api/"
+VERSION = "v1" 
