@@ -1,243 +1,225 @@
-// Game state variables
-let sequence = [];
-let playerSequence = [];
-let gameStarted = false;
-let currentLevel = 1;
-let highScore = 0;
+let game_sequence = [];
+let player_sequence = [];
+let game_is_running = false;
+let current_level = 1;
+let high_score = 0;
 
-// Constants for pads and their corresponding notes
-const PADS = {
+
+const PAD_NOTES = {
     'pad-red': 'C4',
     'pad-yellow': 'D4',
     'pad-green': 'E4',
     'pad-blue': 'F4'
 };
 
-// Key mappings
-const KEY_TO_PAD = {
+
+const KEYBOARD_KEYS = {
     'q': 'pad-red',
     'w': 'pad-yellow',
     'a': 'pad-green',
     's': 'pad-blue'
 };
 
-// API base URL - always use localhost for development branch
-const BASE_URL = 'http://localhost:3000/api/v1';
 
-// Get DOM elements
-const startButton = document.getElementById('start-btn');
-const replayButton = document.getElementById('replay-btn');
-const highScoreDisplay = document.getElementById('high-score');
-const levelIndicator = document.getElementById('level-indicator');
-const soundSelect = document.getElementById('sound-select');
-const failureModal = document.getElementById('failure-modal');
-const resetButton = document.getElementById('reset-btn');
+const API_URL = 'http://localhost:3000/api/v1';
 
-// Add required scripts at runtime if they're not in the HTML
-function loadScript(url, callback) {
+const start_button = document.getElementById('start-btn');
+const replay_button = document.getElementById('replay-btn');
+const high_score_display = document.getElementById('high-score');
+const level_display = document.getElementById('level-indicator');
+const sound_selector = document.getElementById('sound-select');
+const failure_popup = document.getElementById('failure-modal');
+const reset_button = document.getElementById('reset-btn');
+let sound_maker;
+
+const load_script = (url, callback) => {
     const script = document.createElement('script');
     script.type = 'text/javascript';
     script.src = url;
     script.onload = callback;
     document.head.appendChild(script);
-}
+};
 
-// Load required scripts
-window.onload = function() {
+window.onload = () => {
     if (typeof axios === 'undefined') {
-        loadScript('https://unpkg.com/axios/dist/axios.min.js', function() {
+        load_script('https://unpkg.com/axios/dist/axios.min.js', () => {
             if (typeof Tone === 'undefined') {
-                loadScript('https://unpkg.com/tone', initializeGame);
+                load_script('https://unpkg.com/tone', setup_game);
             } else {
-                initializeGame();
+                setup_game();
             }
         });
     } else if (typeof Tone === 'undefined') {
-        loadScript('https://unpkg.com/tone', initializeGame);
+        load_script('https://unpkg.com/tone', setup_game);
     } else {
-        initializeGame();
+        setup_game();
     }
 };
 
-// Initialize the game once scripts are loaded
-function initializeGame() {
-    // Initialize synth
-    const synth = new Tone.Synth().toDestination();
+class Game {
+    constructor() {
+        this.setup();
+    }
     
-    // Initialize game state on page load
-    initGame();
-    
-    // Event listeners
-    startButton.addEventListener('click', startGame);
-    replayButton.addEventListener('click', playSequence);
-    resetButton.addEventListener('click', initGame);
-    
-    // Keyboard support
-    document.addEventListener('keydown', (event) => {
-        const key = event.key.toLowerCase();
-        if (KEY_TO_PAD[key]) {
-            handlePadClick(KEY_TO_PAD[key]);
-        }
-    });
-    
-    // Pad click handlers
-    Object.keys(PADS).forEach(padId => {
-        document.getElementById(padId).addEventListener('click', () => handlePadClick(padId));
-    });
-    
-    // Play tone and light up pad
-    function playPad(padId) {
-        const pad = document.getElementById(padId);
-        const note = PADS[padId];
+    setup() {
+
+        sound_maker = new Tone.Synth().toDestination();
         
-        // Update synth oscillator type
-        synth.oscillator.type = soundSelect.value;
+
+        this.reset_game();
         
-        // Play the tone
-        synth.triggerAttackRelease(note, '0.3');
+
+        start_button.addEventListener('click', () => this.start_new_game());
+        replay_button.addEventListener('click', () => this.show_sequence());
+        reset_button.addEventListener('click', () => this.reset_game());
         
-        // Visual feedback
+        
+        document.addEventListener('keydown', (event) => {
+            const key_pressed = event.key.toLowerCase();
+            if (KEYBOARD_KEYS[key_pressed]) {
+                this.handle_pad_click(KEYBOARD_KEYS[key_pressed]);
+            }
+        });
+        
+
+        Object.keys(PAD_NOTES).forEach(pad_id => {
+            document.getElementById(pad_id).addEventListener('click', () => 
+                this.handle_pad_click(pad_id)
+            );
+        });
+    }
+
+    play_pad(pad_id) {
+        const pad = document.getElementById(pad_id);
+        const note = PAD_NOTES[pad_id];
+        
+
+        sound_maker.oscillator.type = sound_selector.value;
+        
+
+        sound_maker.triggerAttackRelease(note, '0.3');
+        
+
         pad.classList.add('active');
         setTimeout(() => pad.classList.remove('active'), 300);
     }
     
-    // Play sequence
-    async function playSequence() {
-        replayButton.disabled = true;
-        startButton.disabled = true;
+
+    async show_sequence() {
+        replay_button.disabled = true;
+        start_button.disabled = true;
         
-        console.log("Playing sequence:", sequence);
-        
-        for (const padId of sequence) {
+        for (const pad_id of game_sequence) {
             await new Promise(resolve => setTimeout(resolve, 500));
-            playPad(padId);
+            this.play_pad(pad_id);
         }
         
-        replayButton.disabled = false;
-        if (!gameStarted) {
-            startButton.disabled = false;
+        replay_button.disabled = false;
+        if (!game_is_running) {
+            start_button.disabled = false;
         }
     }
-    
-    // Handle pad clicks
-    function handlePadClick(padId) {
-        if (!gameStarted) return;
+    // handle pad click
+
+    handle_pad_click(pad_id) {
+        if (!game_is_running) return;
         
-        playPad(padId);
-        playerSequence.push(padId);
+        this.play_pad(pad_id);
+        player_sequence.push(pad_id);
     
-        if (playerSequence.length === sequence.length) {
-            validateSequence();
+        if (player_sequence.length === game_sequence.length) {
+            this.check_sequence();
         }
     }
-    
-    // Start game
-    async function startGame() {
+    // start game
+    async start_new_game() {
         try {
-            console.log("Attempting to connect to backend at:", BASE_URL);
+            await axios.put(`${API_URL}/game-state`);
             
-            // Reset game state
-            const resetResponse = await axios.put(`${BASE_URL}/game-state`);
-            console.log("Game reset response:", resetResponse.data);
+            const response = await axios.get(`${API_URL}/game-state`);
             
-            // After resetting, get the current game state to see the sequence
-            const getResponse = await axios.get(`${BASE_URL}/game-state`);
-            console.log("Game state response:", getResponse.data);
-            
-            // Now we have the initial sequence from the game state
-            if (getResponse.data && getResponse.data.sequence) {
-                sequence = getResponse.data.sequence.map(color => `pad-${color}`);
+            if (response.data && response.data.sequence) {
+                game_sequence = response.data.sequence.map(color => `pad-${color}`);
                 
-                // Update game state variables
-                gameStarted = true;
-                startButton.disabled = true;
-                replayButton.disabled = false;
-                playerSequence = [];
-                currentLevel = getResponse.data.level || 1;
-                levelIndicator.textContent = currentLevel;
+                game_is_running = true;
+                start_button.disabled = true;
+                replay_button.disabled = false;
+                player_sequence = [];
+                current_level = response.data.level || 1;
+                level_display.textContent = current_level;
                 
-                console.log("Initial sequence to play:", sequence);
-                
-                // Play the sequence
-                if (sequence.length > 0) {
-                    playSequence();
-                } else {
-                    console.error("No sequence in game state");
+                if (game_sequence.length > 0) {
+                    this.show_sequence();
                 }
-            } else {
-                console.error("Invalid game state response:", getResponse.data);
             }
         } catch (error) {
-            console.error('Failed to start game:', error);
-            if (error.response) {
-                console.log('Error details:', error.response.data);
-            }
+            console.error('Game could not start');
         }
     }
-    
-    // Validate sequence
-    async function validateSequence() {
+    // check how many pads the player has pressed
+    async check_sequence() {
         try {
-            const sequenceToValidate = playerSequence.map(padId => padId.replace('pad-', ''));
-            console.log("Sending sequence to validate:", sequenceToValidate);
+            const sequence_to_check = [];
+            for (let i = 0; i < player_sequence.length; i++) {
+                sequence_to_check.push(player_sequence[i].replace('pad-', ''));
+            }
             
-            const response = await axios.post(`${BASE_URL}/game-state/sequence`, {
-                sequence: sequenceToValidate
+            const response = await axios.post(`${API_URL}/game-state/sequence`, {
+                sequence: sequence_to_check
             });
             
-            console.log("Validation response:", response.data);
-            
             if (response.status === 200) {
-                currentLevel++;
-                levelIndicator.textContent = currentLevel;
+                current_level++;
+                level_display.textContent = current_level;
                 
-                // Handle different response structures
                 if (response.data.gameState) {
-                    if (response.data.gameState.highScore > highScore) {
-                        highScore = response.data.gameState.highScore;
-                        highScoreDisplay.textContent = highScore;
+                    if (response.data.gameState.highScore > high_score) {
+                        high_score = response.data.gameState.highScore;
+                        high_score_display.textContent = high_score;
                     }
-                    sequence = response.data.gameState.sequence.map(color => `pad-${color}`);
+                    game_sequence = response.data.gameState.sequence.map(color => `pad-${color}`);
                 } else {
-                    sequence = response.data.sequence.map(color => `pad-${color}`);
+                    game_sequence = response.data.sequence.map(color => `pad-${color}`);
                 }
                 
-                playerSequence = [];
-                console.log("Next sequence:", sequence);
-                setTimeout(playSequence, 1000);
+                player_sequence = [];
+                setTimeout(() => this.show_sequence(), 1000);
             }
         } catch (error) {
-            console.error('Failed to validate sequence:', error);
-            console.log('Error details:', error.response || error);
-            showFailureModal();
+            console.error('Wrong sequence');
+            show_game_over();
+        }
+    }
+    
+    async reset_game() {
+        try {
+            await axios.put(`${API_URL}/game-state`);
+            reset_variables();
+        } catch (error) {
+            console.error('Could not reset game');
         }
     }
 }
 
-// Initialize game state on page load
-const initGame = async () => {
-    try {
-        const response = await axios.put(`${BASE_URL}/game-state`);
-        console.log("Game initialized:", response.data);
-        resetGameState();
-    } catch (error) {
-        console.error('Failed to initialize game:', error);
+const reset_variables = () => {
+    if (game_sequence.length > 0) {
+        game_sequence = [];
     }
+    player_sequence = [];
+    game_is_running = false;
+    current_level = 1;
+    level_display.textContent = current_level;
+    start_button.disabled = false;
+    replay_button.disabled = true;
+    failure_popup.style.display = 'none';
 };
 
-// Reset local game state
-const resetGameState = () => {
-    sequence = [];
-    playerSequence = [];
-    gameStarted = false;
-    currentLevel = 1;
-    levelIndicator.textContent = currentLevel;
-    startButton.disabled = false;
-    replayButton.disabled = true;
-    failureModal.style.display = 'none';
+// Show GAME OVER popup
+const show_game_over = () => {
+    failure_popup.style.display = 'block';
 };
 
-// Show failure modal
-const showFailureModal = () => {
-    failureModal.style.display = 'block';
+// Create and setup the game
+const setup_game = () => {
+    window.game = new Game();
 }; 
